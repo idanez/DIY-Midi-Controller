@@ -28,7 +28,8 @@
 
 /////////////////////////////////////////////
 // Are you using buttons?
-//#define USING_BUTTONS 1  //* comment if not using buttons
+#define USING_BUTTONS 1                      //* comment if not using buttons
+const bool SEND_MSG_ON_BTN_RELEASE = false;  //* Set this value to true if the button must send a message when it is released
 
 /////////////////////////////////////////////
 // Are you using potentiometers?
@@ -262,21 +263,21 @@ byte PB = 4;  // Pitch Bend
 // BUTTONS
 #ifdef USING_BUTTONS
 
-const byte N_BUTTONS = 3;                                //*  total numbers of buttons. Number of buttons in the Arduino + number of buttons on multiplexer 1 + number of buttons on multiplexer 2... (DON'T put Octave and MIDI channel (bank) buttons here)
-const byte N_BUTTONS_ARDUINO = 3;                        //* number of buttons connected straight to the Arduino
-const byte BUTTON_ARDUINO_PIN[N_BUTTONS] = { 2, 3, 4 };  //* pins of each button connected straight to the Arduino
+const byte N_BUTTONS = 4;                                   //*  total numbers of buttons. Number of buttons in the Arduino + number of buttons on multiplexer 1 + number of buttons on multiplexer 2... (DON'T put Octave and MIDI channel (bank) buttons here)
+const byte N_BUTTONS_ARDUINO = 4;                           //* number of buttons connected straight to the Arduino
+const byte BUTTON_ARDUINO_PIN[N_BUTTONS] = { 4, 5, 6, 7 };  //* pins of each button connected straight to the Arduino
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #ifdef USING_MUX                                      // Fill if you are using mux, otherwise just leave it
 const byte N_BUTTONS_PER_MUX[N_MUX] = { 16, 13, 5 };  //* number of buttons in each mux (in order)
 const byte BUTTON_MUX_PIN[N_MUX][16] = {
-//* pin of each button of each mux in order
+  //* pin of each button of each mux in order
 
-{ 1, 2, 0, 5, 4, 3, 6, 7, 10, 9, 8, 13, 12, 11, 15, 14 },  // 1
-{ 2, 1, 0, 5, 4, 3, 7, 6, 9, 8, 13, 12, 15 },              // 2
-{ 6, 5, 4, 3, 8 },
-// ...
+  { 1, 2, 0, 5, 4, 3, 6, 7, 10, 9, 8, 13, 12, 11, 15, 14 },  // 1
+  { 2, 1, 0, 5, 4, 3, 7, 6, 9, 8, 13, 12, 15 },              // 2
+  { 6, 5, 4, 3, 8 },
+  // ...
 };
 
 int buttonMuxThreshold = 850;
@@ -295,10 +296,10 @@ int buttonMuxThreshold = 850;
 
 //* Put here the type of message you want to send, in the same order you declared the button pins
 // "NN" for Note Number | "CC" for Control Change | "T" for Note Number but in toggle mode | "PC" for Program Change
-byte MESSAGE_TYPE[N_BUTTONS] = { NN, NN, NN };
+byte MESSAGE_TYPE[N_BUTTONS] = { CC, CC, CC, CC };
 
 //* Put here the number of the message you want to send, in the right order, no matter if it's a note number, CC (or MACKIE), Program Change
-byte MESSAGE_VAL[N_BUTTONS] = { 36, 37, 38 };
+byte MESSAGE_VAL[N_BUTTONS] = { 23, 22, 21, 20 };
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -306,7 +307,7 @@ byte MESSAGE_VAL[N_BUTTONS] = { 36, 37, 38 };
 #ifdef USING_BANKS_WITH_BUTTONS
 
 //#define USING_MUX_BANK_BUTTON_PIN 1; // Define if you are using the bank buttons on the Mux pin. It has to be the first mux.
-const byte BANK_BUTTON_PIN[2] = { 16, 10 };  //* first will decrease MIDI chennel and second will increase
+const byte BANK_BUTTON_PIN[2] = { 3, 2 };  //* first will decrease MIDI chennel and second will increase
 
 #endif  //USING_BANKS_WITH_BUTTONS
 
@@ -322,7 +323,7 @@ const byte OCTAVE_BUTTON_PIN[2] = { 5, 4 };  //* first will decrease MIDI channe
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 //#define pin13 1 // uncomment if you are using pin 13 (pin with led), or comment the line if it is not
-byte pin13index = 12;  //* put the index of the pin 13 of the buttonPin[] array if you are using, if not, comment
+//byte pin13index = 12;  //* put the index of the pin 13 of the buttonPin[] array if you are using, if not, comment
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -347,23 +348,23 @@ unsigned long debounceDelay = 50;  //* the debounce time; increase if the output
 
 #ifdef USING_POTENTIOMETERS
 
-const byte N_POTS = 2;  //* total numbers of pots (slide & rotary). Number of pots in the Arduino + number of pots on multiplexer 1 + number of pots on multiplexer 2...
+const byte N_POTS = 1;  //* total numbers of pots (slide & rotary). Number of pots in the Arduino + number of pots on multiplexer 1 + number of pots on multiplexer 2...
 
-const byte N_POTS_ARDUINO = 2;  //* number of pots connected straight to the Arduino
+const byte N_POTS_ARDUINO = 1;  //* number of pots connected straight to the Arduino
 // If using the Arduino declare as "A1, A2"
 // If using ESP32 only use the GPIO number as "11, 10"
-const byte POT_ARDUINO_PIN[N_POTS_ARDUINO] = { A2, A1 };  //* pins of each pot connected straight to the Arduino (don't use "A" if you are using ESP32, only the number)
+const byte POT_ARDUINO_PIN[N_POTS_ARDUINO] = { A0 };  //* pins of each pot connected straight to the Arduino (don't use "A" if you are using ESP32, only the number)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #ifdef USING_MUX
 const byte N_POTS_PER_MUX[N_MUX] = { 0, 3, 1 };  //* number of pots in each multiplexer (in order)
 const byte POT_MUX_PIN[N_MUX][16] = {
-//* pins of each pot of each mux in the order you want them to be
-{},  //* pins of the first mux
-{ 10, 11, 14 },
-{ 7 }
-// ...
+  //* pins of each pot of each mux in the order you want them to be
+  {},  //* pins of the first mux
+  { 10, 11, 14 },
+  { 7 }
+  // ...
 };
 #endif
 
@@ -380,9 +381,9 @@ const byte POT_MUX_PIN[N_MUX][16] = {
 
 //* Put here the type of message you want to send, in the same order you declared the button pins
 // "CC" for Control Change | "PB" for Pitch Bend
-byte MESSAGE_TYPE_POT[N_POTS] = { CC, PB };
+byte MESSAGE_TYPE_POT[N_POTS] = { CC };
 
-byte POT_CC_N[N_POTS] = { 1, 2 };  // Add the CC NUMBER or MACKIE of each pot you want
+byte POT_CC_N[N_POTS] = { 80 };  // Add the CC NUMBER or MACKIE of each pot you want
 
 #endif
 
@@ -485,7 +486,7 @@ const int I2C_ADDRESS = 0x20;  //* MCP23017 I2C address
 const byte N_ENC_MCP23017 = 6;      // Number of encoders used
 const byte N_ENC_CH_MCP23017 = 16;  // number of ENCODER_MIDI_CHs
 
-int encoderPin[N_ENC_MCP23017][2] = {{8, 9}, {0, 1}, {12, 13}, {10, 11}, {2, 3}, {14, 15}};  // Pin numbers for the A and B channels of each encoder
+int encoderPin[N_ENC_MCP23017][2] = { { 8, 9 }, { 0, 1 }, { 12, 13 }, { 10, 11 }, { 2, 3 }, { 14, 15 } };  // Pin numbers for the A and B channels of each encoder
 int INT_PIN = 8;                                                                                           // microcontroller pin attached to INTA/B
 
 int count[N_ENC_MCP23017] = { 0 };      // Current count of each encoder

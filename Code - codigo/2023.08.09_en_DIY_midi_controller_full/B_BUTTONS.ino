@@ -30,15 +30,12 @@ byte toggleVelocity[N_BUTTONS] = { 127 };
 // Function
 void buttons() {
 
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
   // read pins from arduino
   for (int i = 0; i < N_BUTTONS_ARDUINO; i++) {
     buttonCState[i] = digitalRead(BUTTON_ARDUINO_PIN[i]);
   }
 
 #ifdef USING_MUX
-
   // It will happen if you are using MUX
   int nButtonsPerMuxSum = N_BUTTONS_ARDUINO;  // offsets the buttonCState at every mux reading
 
@@ -60,7 +57,7 @@ void buttons() {
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   for (int i = 0; i < N_BUTTONS; i++) {  // Read the buttons connected to the Arduino
-
+    bool sendMsg = true;
 #ifdef pin13
 
     // It will happen if you are using pin 13
@@ -75,195 +72,195 @@ void buttons() {
         lastDebounceTime[i] = millis();
 
         if (buttonCState[i] == LOW) {  // if button is pressed
-
-          velocity[i] = 127;  // if button is pressed velocity is 127
+          sendMsg = true;
+          if(!SEND_MSG_ON_BTN_RELEASE){
+            velocity[i] = velocity[i] == 127 ? 0 : 127;
+          } else {
+            velocity[i] = 127;  // if button is pressed velocity is 127
+          }
 
         } else {
-
-          velocity[i] = 0;  // if button is released velocity is 0
+          sendMsg = SEND_MSG_ON_BTN_RELEASE;
+          //continue; //Nao funcionou
+          //break; //Nao funcionou
+          //velocity[i] = 0;  // if button is released velocity is 0
         }
 
-        switch (MESSAGE_TYPE[i]) {
-
-            // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-            // NN - NOTE NUMBER
-
-          case 0:
-
-#ifdef ATMEGA328
-            // if using custom NOTE numbers
-            MIDI.sendNoteOn(MESSAGE_VAL[i] + octave, velocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
-
-#elif ATMEGA32U4
-
-#ifdef MIDI_DIN
-            // if using midi din cable
-
-            // usb
-            noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, velocity[i]);  // channel, note, velocity
-            MidiUSB.flush();
-            // din
-            midi2.sendNoteOn(MESSAGE_VAL[i] + octave, velocity[i], BUTTON_MIDI_CH + 1);  // note, velocity, channel
-
-#else  // not using MIDI_DIN
-            noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, velocity[i]);  // channel, note, velocity
-            MidiUSB.flush();
-
-#endif  // MIDI_DIN
-
-#elif TEENSY
-            // if using custom NOTE numbers
-            usbMIDI.sendNoteOn(MESSAGE_VAL[i] + octave, velocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
-
-#elif BLEMIDI
-            BLEMidiServer.noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, velocity[i]);          // channel, note, velocity
-#endif
-
+        if(sendMsg) 
+        {
 #ifdef DEBUG
-            Serial.print("Button: ");
-            Serial.print(i);
-            Serial.print("  | ch: ");
-            Serial.print(BUTTON_MIDI_CH);
-            Serial.print("  | nn: ");
-            Serial.print(MESSAGE_VAL[i] + octave);
-            Serial.print("  | velocity: ");
-            Serial.println(velocity[i]);
+          Serial.print("Button: ");
+          Serial.print(i);
+          Serial.print("  | ch: ");
+          Serial.print(BUTTON_MIDI_CH);
+          Serial.print("  | ");
+          char * name = "NN";
+          switch (MESSAGE_TYPE[i]){
+            case 1:
+              name = "CC";
+              break;
+            case 2:
+              name = "T";
+              break;
+            case 3:
+              name = "PC";
+            case 4:
+              name = "PB";
+            break;          
+          }
+          Serial.print(name);
+          Serial.print(" : ");
+          Serial.print(MESSAGE_VAL[i] + octave);
+          Serial.print("  | velocity: ");
+          Serial.println(velocity[i]);
 #endif
-
+          switch (MESSAGE_TYPE[i]) {
+            case 0:
+              processNNMsg(i);
+              break;
+            case 1:
+              processCCMsg(i);
+              break;
+            case 2:
+              processToggleMsg(i);
             break;
+            case 3:
+              processPCMsg(i);
+              break;
+          }
 
-            // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-            // CC - CONTROL CHANGE
-
-          case 1:
-
-#ifdef ATMEGA328
-            MIDI.sendControlChange(MESSAGE_VAL[i], velocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
-
-#elif ATMEGA32U4
-
-#ifdef MIDI_DIN
-            // if using MIDI din cable
-
-            // usb
-            controlChange(BUTTON_MIDI_CH, MESSAGE_VAL[i], velocity[i]);  //  (channel, CC number,  CC value)
-            MidiUSB.flush();
-            // din
-            midi2.sendControlChange(MESSAGE_VAL[i], velocity[i], BUTTON_MIDI_CH + 1);  // note, velocity, channel
-
-#else  // no MIDI din
-            controlChange(BUTTON_MIDI_CH, MESSAGE_VAL[i], velocity[i]);  //  (channel, CC number,  CC value)
-            MidiUSB.flush();
-
-#endif  // MIDI_DIN
-
-#elif TEENSY
-            usbMIDI.sendControlChange(MESSAGE_VAL[i], velocity[i], BUTTON_MIDI_CH);    // CC number, CC value, midi channel
-
-#elif BLEMIDI
-            BLEMidiServer.controlChange(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, velocity[i]);   // channel, cc number, cc value
-
-#elif DEBUG
-            Serial.print("Button: ");
-            Serial.print(i);
-            Serial.print("  | ch: ");
-            Serial.print(BUTTON_MIDI_CH);
-            Serial.print("  | cc: ");
-            Serial.print(MESSAGE_VAL[i]);
-            Serial.print("  | value: ");
-            Serial.println(velocity[i]);
-
-#endif
-
-            break;
-
-            // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-            // T - TOGGLE
-
-          case 2:
-            if (buttonCState[i] == LOW) {
-              toggleVelocity[i] = !toggleVelocity[i] * 127;  // changes the velocity between 0 and 127 each time one press a button
-
-#ifdef ATMEGA328
-              // if using custom NOTE numbers
-              MIDI.sendNoteOn(MESSAGE_VAL[i] + octave, toggleVelocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
-
-#elif ATMEGA32U4
-              noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, toggleVelocity[i]);      // channel, note, velocity
-              MidiUSB.flush();
-
-#elif TEENSY
-              // if using custom NOTE numbers
-              usbMIDI.sendNoteOn(MESSAGE_VAL[i] + octave, toggleVelocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
-
-#elif BLEMIDI
-              BLEMidiServer.noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, toggleVelocity[i]);  // channel, note, velocity
-
-#elif DEBUG
-              Serial.print("Button: ");
-              Serial.print(i);
-              Serial.print("  | ch: ");
-              Serial.print(BUTTON_MIDI_CH);
-              Serial.print("  | nn toggle: ");
-              Serial.print(MESSAGE_VAL[i] + octave);
-              Serial.print("  | velocity: ");
-              Serial.println(toggleVelocity[i]);
-#endif
-            }
-
-            break;
-
-            // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-            // PC - PROGRAM CHANGE
-
-          case 3:
-
-#ifdef ATMEGA328
-            // if using custom NOTE numbers
-            MIDI.sendProgramChange(MESSAGE_VAL[i], BUTTON_MIDI_CH);
-
-#elif ATMEGA32U4
-
-#ifdef MIDI_DIN
-            // if using midi din cable
-
-            // usb
-            programChange(BUTTON_MIDI_CH, MESSAGE_VAL[i]);
-            MidiUSB.flush();
-            // din
-            midi2.sendProgramChange(MESSAGE_VAL[i], BUTTON_MIDI_CH);
-
-#else  // not using MIDI_DIN
-            programChange(BUTTON_MIDI_CH, MESSAGE_VAL[i]);
-            MidiUSB.flush();
-
-#endif  // MIDI_DIN
-
-#elif TEENSY
-            // if using custom NOTE numbers
-            usbMIDI.sendProgramChange(MESSAGE_VAL[i], BUTTON_MIDI_CH);
-
-#elif BLEMIDI
-
-            BLEMidiServer.programChange(BUTTON_MIDI_CH, MESSAGE_VAL[i]);
-
-#elif DEBUG
-            Serial.print("Button: ");
-            Serial.print(i);
-            Serial.print("  | ch: ");
-            Serial.print(BUTTON_MIDI_CH);
-            Serial.print("  | nn: ");
-            Serial.print(MESSAGE_VAL[i] + octave);
-            Serial.print("  | velocity: ");
-            Serial.println(velocity[i]);
-#endif
-
-            break;
         }
         buttonPState[i] = buttonCState[i];
       }
     }
   }
+}
+
+
+void processNNMsg(int& i)
+{
+#ifdef ATMEGA328
+  // if using custom NOTE numbers
+  MIDI.sendNoteOn(MESSAGE_VAL[i] + octave, velocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
+
+#elif ATMEGA32U4
+
+  #ifdef MIDI_DIN
+    // if using midi din cable
+
+    // usb
+    noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, velocity[i]);  // channel, note, velocity
+    MidiUSB.flush();
+    // din
+    midi2.sendNoteOn(MESSAGE_VAL[i] + octave, velocity[i], BUTTON_MIDI_CH + 1);  // note, velocity, channel
+
+  #else  // not using MIDI_DIN
+    noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, velocity[i]);  // channel, note, velocity
+    MidiUSB.flush();
+  #endif  // MIDI_DIN
+
+#elif TEENSY
+  // if using custom NOTE numbers
+  usbMIDI.sendNoteOn(MESSAGE_VAL[i] + octave, velocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
+
+#elif BLEMIDI
+  BLEMidiServer.noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, velocity[i]);          // channel, note, velocity
+#endif
+
+}
+
+
+void processCCMsg(int& i)
+{
+#ifdef ATMEGA328
+  MIDI.sendControlChange(MESSAGE_VAL[i], velocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
+
+#elif ATMEGA32U4
+
+#ifdef MIDI_DIN
+  // if using MIDI din cable
+
+  // usb
+  controlChange(BUTTON_MIDI_CH, MESSAGE_VAL[i], velocity[i]);  //  (channel, CC number,  CC value)
+  MidiUSB.flush();
+  // din
+  midi2.sendControlChange(MESSAGE_VAL[i], velocity[i], BUTTON_MIDI_CH + 1);  // note, velocity, channel
+
+#else  // no MIDI din
+  controlChange(BUTTON_MIDI_CH, MESSAGE_VAL[i], velocity[i]);  //  (channel, CC number,  CC value)
+  MidiUSB.flush();
+
+#endif  // MIDI_DIN
+
+#elif TEENSY
+  usbMIDI.sendControlChange(MESSAGE_VAL[i], velocity[i], BUTTON_MIDI_CH);    // CC number, CC value, midi channel
+
+#elif BLEMIDI
+  BLEMidiServer.controlChange(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, velocity[i]);   // channel, cc number, cc value
+
+#endif
+
+}
+
+void processToggleMsg(int& i)
+{
+  if (buttonCState[i] == LOW) {
+    toggleVelocity[i] = !toggleVelocity[i] * 127;  // changes the velocity between 0 and 127 each time one press a button
+
+#ifdef ATMEGA328
+    // if using custom NOTE numbers
+    MIDI.sendNoteOn(MESSAGE_VAL[i] + octave, toggleVelocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
+
+#elif ATMEGA32U4
+    noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, toggleVelocity[i]);      // channel, note, velocity
+    MidiUSB.flush();
+
+#elif TEENSY
+    // if using custom NOTE numbers
+    usbMIDI.sendNoteOn(MESSAGE_VAL[i] + octave, toggleVelocity[i], BUTTON_MIDI_CH);  // note, velocity, channel
+
+#elif BLEMIDI
+    BLEMidiServer.noteOn(BUTTON_MIDI_CH, MESSAGE_VAL[i] + octave, toggleVelocity[i]);  // channel, note, velocity
+
+#endif
+
+  }
+}
+
+
+void processPCMsg(int& i)
+{
+
+#ifdef ATMEGA328
+  // if using custom NOTE numbers
+  MIDI.sendProgramChange(MESSAGE_VAL[i], BUTTON_MIDI_CH);
+
+#elif ATMEGA32U4
+
+  #ifdef MIDI_DIN
+  // if using midi din cable
+
+  // usb
+  programChange(BUTTON_MIDI_CH, MESSAGE_VAL[i]);
+  MidiUSB.flush();
+  // din
+  midi2.sendProgramChange(MESSAGE_VAL[i], BUTTON_MIDI_CH);
+
+  #else  // not using MIDI_DIN
+  programChange(BUTTON_MIDI_CH, MESSAGE_VAL[i]);
+  MidiUSB.flush();
+
+#endif  // MIDI_DIN
+
+#elif TEENSY
+  // if using custom NOTE numbers
+  usbMIDI.sendProgramChange(MESSAGE_VAL[i], BUTTON_MIDI_CH);
+
+#elif BLEMIDI
+  BLEMidiServer.programChange(BUTTON_MIDI_CH, MESSAGE_VAL[i]);
+
+#endif
+
 }
 
 #endif

@@ -1,5 +1,8 @@
 void loop() {
 
+#ifdef DEBUG
+#endif
+
 #ifdef ATMEGA32U4
 
   // it will read MIDI incoming messages if using ATMEGA32U4

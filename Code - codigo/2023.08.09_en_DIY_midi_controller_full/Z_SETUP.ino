@@ -5,6 +5,7 @@ void setup() {
   // 31250 for MIDI class compliant | 115200 for Hairless MIDI
 
   int baudRate = 115200;
+  //int baudRate = 31250;
 
 #ifdef MIDI_DIN
   baudRate = 31250;
@@ -79,7 +80,7 @@ void setup() {
 #endif // DEBUG
 
 
-#endif
+#endif //TEENSY
 
 #ifdef DEBUG
   Serial.begin(baudRate);

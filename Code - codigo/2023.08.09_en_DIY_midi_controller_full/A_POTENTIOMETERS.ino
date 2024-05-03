@@ -89,17 +89,17 @@ void potentiometers() {
     //potMidiCState[i] = potCState[i] >> 3; // Maps the reading of the potCState to a value usable in midi
 
 #ifdef USING_HIGH_RES_FADERS  // if def
-#ifdef USING_MOTORIZED_FADERS
+  #ifdef USING_MOTORIZED_FADERS
     highResFader = map(potCState[i], faderMin[i], faderMax[i], 0, 16383);  // converts the 10bit range to 14bit (it will skip some values on 14bit)
     faderMSB = highResFader / 128;                                         // Most Sigficant Byte
     faderLSB = highResFader % 128;                                         // Least Sigficant Byte
 
-#else   // if not USING_MOTORIZED_FADERS
+  #else   // if not USING_MOTORIZED_FADERS
 
     highResFader = map(potCState[i], potMin, potMax, 0, 16383);  // converts the 10bit range to 14bit (it will skip some values on 14bit)
     faderMSB = highResFader / 128;                               // Most Sigficant Byte
     faderLSB = highResFader % 128;                               // Least Sigficant Byte
-#endif  // USING_MOTORIZED_FADERS
+  #endif  // USING_MOTORIZED_FADERS
 
 #endif  // USING_HIGH_RES_FADERS
 
