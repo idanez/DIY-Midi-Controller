@@ -33,7 +33,7 @@ const bool SEND_MSG_ON_BTN_RELEASE = false;  //* Set this value to true if the b
 
 /////////////////////////////////////////////
 // Are you using potentiometers?
-#define USING_POTENTIOMETERS 1  //* comment if not using potentiometers
+//#define USING_POTENTIOMETERS 1  //* comment if not using potentiometers
 
 // Are you using high res faders?
 //#define USING_HIGH_RES_FADERS 1 //* comment if not using high res faders (any fader can be high res)
@@ -43,7 +43,7 @@ const bool SEND_MSG_ON_BTN_RELEASE = false;  //* Set this value to true if the b
 
 /////////////////////////////////////////////
 // Are you using a multiplexer?
-//#define USING_MUX 1 //* comment if not using a multiplexer, uncomment if using it.
+#define USING_MUX 1 //* comment if not using a multiplexer, uncomment if using it.
 
 /////////////////////////////////////////////
 // Are you using encoders?
@@ -213,10 +213,10 @@ Adafruit_SSD1306 display(128, 64);  // Create display - size of the display in p
 
 #define N_MUX 1  //* number of multiplexers
 //* Define s0, s1, s2, s3, and x pins
-#define s0 18
-#define s1 19
-#define s2 20
-#define s3 21
+#define s0 9
+#define s1 8
+#define s2 7
+#define s3 6
 
 #define x1 A0  // analog pin of the first mux
 //#define x2 A1 // analog pin of the first mux
@@ -263,20 +263,20 @@ byte PB = 4;  // Pitch Bend
 // BUTTONS
 #ifdef USING_BUTTONS
 
-const byte N_BUTTONS = 4;                                   //*  total numbers of buttons. Number of buttons in the Arduino + number of buttons on multiplexer 1 + number of buttons on multiplexer 2... (DON'T put Octave and MIDI channel (bank) buttons here)
-const byte N_BUTTONS_ARDUINO = 4;                           //* number of buttons connected straight to the Arduino
-const byte BUTTON_ARDUINO_PIN[N_BUTTONS] = { 4, 5, 6, 7 };  //* pins of each button connected straight to the Arduino
+const byte N_BUTTONS = 16;                                   //*  total numbers of buttons. Number of buttons in the Arduino + number of buttons on multiplexer 1 + number of buttons on multiplexer 2... (DON'T put Octave and MIDI channel (bank) buttons here)
+const byte N_BUTTONS_ARDUINO = 0;                           //* number of buttons connected straight to the Arduino
+const byte BUTTON_ARDUINO_PIN[N_BUTTONS] = { 0 };  //* pins of each button connected straight to the Arduino
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #ifdef USING_MUX                                      // Fill if you are using mux, otherwise just leave it
-const byte N_BUTTONS_PER_MUX[N_MUX] = { 16, 13, 5 };  //* number of buttons in each mux (in order)
+const byte N_BUTTONS_PER_MUX[N_MUX] = { 16 };  //* number of buttons in each mux (in order)
 const byte BUTTON_MUX_PIN[N_MUX][16] = {
   //* pin of each button of each mux in order
 
-  { 1, 2, 0, 5, 4, 3, 6, 7, 10, 9, 8, 13, 12, 11, 15, 14 },  // 1
-  { 2, 1, 0, 5, 4, 3, 7, 6, 9, 8, 13, 12, 15 },              // 2
-  { 6, 5, 4, 3, 8 },
+  { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }  // 1
+  //{ 2, 1, 0, 5, 4, 3, 7, 6, 9, 8, 13, 12, 15 },              // 2
+  //{ 6, 5, 4, 3, 8 },
   // ...
 };
 
@@ -296,10 +296,10 @@ int buttonMuxThreshold = 850;
 
 //* Put here the type of message you want to send, in the same order you declared the button pins
 // "NN" for Note Number | "CC" for Control Change | "T" for Note Number but in toggle mode | "PC" for Program Change
-byte MESSAGE_TYPE[N_BUTTONS] = { CC, CC, CC, CC };
+byte MESSAGE_TYPE[N_BUTTONS] = { CC, CC, CC, CC, CC, CC, CC, CC, CC, CC, CC, CC, PC, PC, PC, PC};
 
 //* Put here the number of the message you want to send, in the right order, no matter if it's a note number, CC (or MACKIE), Program Change
-byte MESSAGE_VAL[N_BUTTONS] = { 23, 22, 21, 20 };
+byte MESSAGE_VAL[N_BUTTONS] = { 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20,  0,  1,  2,  3};
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -338,7 +338,7 @@ const byte CHANNEL_BUTTON_PIN = 8;
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 // debounce
-unsigned long debounceDelay = 50;  //* the debounce time; increase if the output flickers
+unsigned long debounceDelay = 120;  //* the debounce time; increase if the output flickers
 
 #endif  // USING_BUTTONS
 
@@ -348,9 +348,9 @@ unsigned long debounceDelay = 50;  //* the debounce time; increase if the output
 
 #ifdef USING_POTENTIOMETERS
 
-const byte N_POTS = 1;  //* total numbers of pots (slide & rotary). Number of pots in the Arduino + number of pots on multiplexer 1 + number of pots on multiplexer 2...
+const byte N_POTS = 0;  //* total numbers of pots (slide & rotary). Number of pots in the Arduino + number of pots on multiplexer 1 + number of pots on multiplexer 2...
 
-const byte N_POTS_ARDUINO = 1;  //* number of pots connected straight to the Arduino
+const byte N_POTS_ARDUINO = 0;  //* number of pots connected straight to the Arduino
 // If using the Arduino declare as "A1, A2"
 // If using ESP32 only use the GPIO number as "11, 10"
 const byte POT_ARDUINO_PIN[N_POTS_ARDUINO] = { A0 };  //* pins of each pot connected straight to the Arduino (don't use "A" if you are using ESP32, only the number)
@@ -508,7 +508,7 @@ Adafruit_MCP23X17 mcp;  // Create an instance of the Adafruit_MCP23X17 class
 
 /////////////////////////////////////////////
 // MIDI CHANNEL
-byte POT_MIDI_CH = 0;  //* MIDI channel to be used
+byte POT_MIDI_CH = 0;  //* MIDI channel to be used - Base 0
 byte BUTTON_MIDI_CH = 0;
 byte ENCODER_MIDI_CH = 1;
 
