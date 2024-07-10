@@ -11,13 +11,14 @@ void buttonsLoop() {
     int buttonReading = btnMux.readChannel(muxButtonPin[i]);
     if (buttonReading > buttonMuxThreshold) {
       buttonCState[i] = HIGH;
+#ifdef DEBUG
+      Serial.println("BTN HIGH");
+#endif
     }
     else {
       buttonCState[i] = LOW;
     }
   }
-
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   for (int i = 0; i < N_BUTTONS; i++) {  // Read the buttons connected to the Arduino
     bool sendMsg = true;
@@ -30,23 +31,21 @@ void buttonsLoop() {
         if (buttonCState[i] == HIGH) {  // if button is pressed
           sendMsg = true;
           if(MESSAGE_TYPE[i] == CC) {
-            if(lastCCMsgSent == MESSAGE_NUM[i]){
-              CC_MSG_VALUE[i] = CC_MSG_VALUE[i] == 127 ? 0 : 127;
+            if(lastBtnCCSent == MESSAGE_NUM[i]) {
+              CC_MSG_VALUE[i] = CC_MSG_VALUE[i] == 127 ? 0 : 127; //If the same button is pressed again, alter the value between 0 and 127
             } else {
               CC_MSG_VALUE[i] = 127;
             }
           }
         } else {
           sendMsg = SEND_MSG_ON_BTN_RELEASE;
-          //if(MESSAGE_TYPE[i] == CC)
-//            CC_MSG_VALUE[i] = 0;
         }
 
         if(sendMsg) 
         {
           if(i == 0 || i == 1) {
             processMidiChannelChange(i);               
-          } if(i == 2 || i == 3) {
+          } else if(i == 2 || i == 3) {
             processPCBank(i);
           } else {
             switch (MESSAGE_TYPE[i]) {
@@ -85,11 +84,15 @@ void processNNMsg(int& btnIndex)
 
 void processCCMsg(int& btnIndex)
 {
-  controlChange(MIDI_CH, MESSAGE_NUM[btnIndex], CC_MSG_VALUE[btnIndex]);  //  (channel, CC number,  CC value)
-  MidiUSB.flush();
-  lastCCMsgSent = MESSAGE_NUM[btnIndex];
-  setLastCCInfo(MESSAGE_NUM[btnIndex]);
-  setValueInfo(CC_MSG_VALUE[btnIndex] == 127 ? 0 : 127); //Inverte no display pois o Amplitube esta cosniderando como valor 0 = ligado e 127 = desligado
+  if(btnIndex > 3) {
+    controlChange(MIDI_CH, MESSAGE_NUM[btnIndex], CC_MSG_VALUE[btnIndex]);  //  (channel, CC number,  CC value)
+    MidiUSB.flush();
+    if(lastBtnCCSent != MESSAGE_NUM[btnIndex]) {
+      setLastBtnCCInfo(MESSAGE_NUM[btnIndex]);
+    }
+    setBtnValueInfo(CC_MSG_VALUE[btnIndex] == 127 ? 0 : 127); //Inverte no display pois o Amplitube esta considerando como valor 0 = ligado e 127 = desligado
+    lastBtnCCSent = MESSAGE_NUM[btnIndex];
+  }
 }
 
 void processToggleMsg(int& btnIndex)
@@ -107,7 +110,9 @@ void processPCMsg(int& btnIndex)
   int pcNum = MESSAGE_NUM[btnIndex] + (4*currentBank);
   programChange(MIDI_CH, pcNum);
   MidiUSB.flush();
-  setLastPCInfo(pcNum + 1); //Mostra como indice 1 pois o Amplitube recebe o patch como indice 0, mas mostra como indice 1
+  if(lastBtnPCSent != pcNum)
+    setLastPCInfo(pcNum + 1); //Mostra como indice 1 pois o Amplitube recebe o patch como indice 0, mas mostra como indice 1
+  lastBtnPCSent = pcNum;
 }
 
 void processPCBank(int btnIndex) {
@@ -153,6 +158,6 @@ void printDbgBtnMessage(int i) {
   Serial.print(" : ");
   Serial.print(MESSAGE_NUM[i]);
   Serial.print(" | CC MSG VALUE: ");
-  Serial.print(CC_MSG_VALUE[i]);
+  Serial.println(CC_MSG_VALUE[i]);
 }
 #endif

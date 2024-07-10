@@ -1,142 +1,252 @@
-#ifdef USING_POTENTIOMETERS
 
-/////////////////////////////////////////////
-// variables you don't need to change
-int reading = 0;
+int potReading[TOTAL_POT_COUNT] = {0};
 
-// Responsive Analog Read
-float snapMultiplier = 0.01;                      // (0.0 - 1.0) - Increase for faster, but less smooth reading
-ResponsiveAnalogRead responsivePot[N_POTS] = {};  // creates an array for the responsive pots. It gets filled in the Setup.
+int potVal[TOTAL_POT_COUNT] = {0};
+int potPrevVal[TOTAL_POT_COUNT] = {0};
+int potMidiVal[TOTAL_POT_COUNT] = {0};
+int potPrevMidiVal[TOTAL_POT_COUNT] = {0};
 
-int potCState[N_POTS] = { 0 };  // Current state of the pot
-int potPState[N_POTS] = { 0 };  // Previous state of the pot
-int potVar = 0;                 // Difference between the current and previous state of the pot
+unsigned long potTime[TOTAL_POT_COUNT] = {0};
+unsigned long potPrevTime[TOTAL_POT_COUNT] = {0};
 
-int potMidiCState[N_POTS] = { 0 };  // Current state of the midi value
-int potMidiPState[N_POTS] = { 0 };  // Previous state of the midi value
+int currPot = 0;
 
-//#ifdef USING_MACKIE
-int PBVal[N_POTS] = { 0 };
-//#endif
+//This is to make the reading more or less smooth
+// (0.0 - 1.0) - Increase for faster, but less smooth reading
+float snapMultiplier = 0.01;
+ResponsiveAnalogRead responsivePot[TOTAL_POT_COUNT] = {};  // creates an array for the responsive pots. It gets filled in the Setup.
 
-boolean potMoving = true;             // If the potentiometer is moving
-unsigned long PTime[N_POTS] = { 0 };  // Previously stored time
-unsigned long timer[N_POTS] = { 0 };  // Stores the time that has elapsed since the timer was reset
+//int muxChannel = 0;
+byte lastPotCCUsed = 0;
 
-// one pole filter
-// y[n] = A0 * x[n] + B1 * y[n-1];
-// A = 0.15 and B = 0.85
-//float filterA = 0.3;
-//float filterB = 0.7;
-
+byte midiValSamples[5] = { 0, 0, 0, 0, 0 };
 
 /////////////////////////////////////////////
 // Function
 void potentiometers() {
 
-  // reads the pins from arduino
-  for (int i = 0; i < N_POTS_ARDUINO; i++) {
-    reading = analogRead(POT_ARDUINO_PIN[i]);
-    responsivePot[i].update(reading);
-    potCState[i] = responsivePot[i].getValue();
-    //potCState[i] = reading;
+  processPotsInMux();
+  processPotsInArduino();
+  
+}
+
+void processPotsInMux() {
+  if (disableAllPots) {
+    return;
   }
-
-#ifdef USING_MUX
-  //It will happen if using a mux
-  int nPotsPerMuxSum = N_POTS_ARDUINO;  //offsets the buttonCState at every mux reading
-
-  // reads the pins from every mux
-  for (int j = 0; j < N_MUX; j++) {
-    for (int i = 0; i < N_POTS_PER_MUX[j]; i++) {
-      //potCState[i + nPotsPerMuxSum] = mux[j].readChannel(POT_MUX_PIN[j][i]);
-      reading = mux[j].readChannel(POT_MUX_PIN[j][i]);
-      responsivePot[i + nPotsPerMuxSum].update(reading);
-      potCState[i + nPotsPerMuxSum] = responsivePot[i + nPotsPerMuxSum].getValue();
+  //Restringindo o loop para a quantidade de pots no teste, apesar dos arrays serem iniciados com a quantidade maxima do multiplexer.
+  //Fazendo isso, pois caso nao exista potenciometro conectado em alguns dos canais do multiplexer, quando esse for selecionado no 
+  //loop será feito leituras erraticas, impactando o teste  
+  for (int muxChannel = 0; muxChannel < 16; muxChannel++) {
+  //for (muxChannel = 0; muxChannel < MUX_POT_COUNT; muxChannel++) {
+    
+#ifdef TEST_EACH_POT_CH
+    bool usePot = isPotAvailableToTest(muxChannel);
+    if(!usePot) {
+      continue;
     }
-    nPotsPerMuxSum += N_POTS_PER_MUX[j];
-  }
 #endif
 
-  for (int i = 0; i < N_POTS; i++) {  // Loops through all the potentiometers
+    if(MESSAGE_TYPE_MUX_POT[muxChannel] != 9) {
 
-    potCState[i] = clipValue(potCState[i], potMin, potMax);
-    //potMidiCState[i] = map(potCState[i], potMin, potMax, 0, 127); // Maps the reading of the potCState to a value usable in midi
-    potMidiCState[i] = map(potCState[i], potMin, potMax, 0, 127);  // Maps the reading of the potCState to a value usable in midi
-    potMidiCState[i] = clipValue(potMidiCState[i], 0, 127);
+      potReading[muxChannel] = potMux.readChannel(muxChannel);
+      responsivePot[muxChannel].update(potReading[muxChannel]);
 
-    //potMidiCState[i] = potCState[i] >> 3; // Maps the reading of the potCState to a value usable in midi
+      potVal[muxChannel] = responsivePot[muxChannel].getValue();
+      //potVal[muxChannel] = potMux.readChannel(muxChannel);
 
-    PBVal[i] = map(potCState[i], potMin, potMax, 0, 16383);
-    potVar = abs(potCState[i] - potPState[i]);  // Calculates the absolute value between the difference between the current and previous state of the pot
+      int midiVal;
+      if(muxChannel < 3) {
+        //Reduzo o range dos valores para os pedais conectados via jack P10 pois, em testes eles nunca chegam no 0 nem no 127
+        if(potVal[muxChannel] < 130)
+          midiVal = 0;
+        else
+          //midiVal = map(potVal[muxChannel], 130, 930, 0, 127);
+          midiVal = map(potVal[muxChannel], 0, 1024, 0, 127);
+      } else {
+        if(potVal[muxChannel] < 20)
+          midiVal = 0;
+        else
+        //potMidiVal[muxChannel] = map(potVal[muxChannel], 0, 1023, 0, 127);
+        //Reduzi um pouco a sensibilidade do pot
+          midiVal = map(potVal[muxChannel], 0, 1024, 0, 127);
+      }
 
-    if (potVar > varThreshold) {  // Opens the gate if the potentiometer variation is greater than the threshold
-      PTime[i] = millis();        // Stores the previous time
-    }
+      if(midiVal < 0)
+        midiVal = 0 ;
+      if(midiVal > 127)
+        midiVal = 127;
+      potMidiVal[muxChannel] = midiVal;
 
-    timer[i] = millis() - PTime[i];  // Resets the timer 11000 - 11000 = 0ms
+      //bool isFluctuating = checkFluctuation(muxChannel, midiVal);
+      //if(isFluctuating)
+      //  continue;
+      
+      //a funcao abs basicamente forca qualquer resultado da conta abaixo a ter um valor positivo, 
+      // por exemplo, caso a conta seja 10 - 20, o resultado seria -10, o abs transforma em 10
+      //int potVar = abs(potVal[muxChannel] - potPrevVal[muxChannel]);
+      int potVarDiff = potVal[muxChannel] - potPrevVal[muxChannel];
+      if(potVarDiff < 0)
+        potVarDiff = potVarDiff * -1;
 
-    if (timer[i] < TIMEOUT) {  // If the timer is less than the maximum allowed time it means that the potentiometer is still moving
-      potMoving = true;
-    } else {
-      potMoving = false;
-    }
+      if(potVarDiff > potReadThreshold) {
+        potPrevTime[muxChannel] = millis();
+      }
 
-    if (potMoving == true) {  // If the potentiometer is still moving, send the change control
-      if (potMidiPState[i] != potMidiCState[i]) {
-#ifdef DEBUG
-        printDebugMsgs();
-#endif
-        potPState[i] = potCState[i];  // Stores the current reading of the potentiometer to compare with the next
-        potMidiPState[i] = potMidiCState[i];
+      potTime[muxChannel] = millis() - potPrevTime[muxChannel];
+
+      if(potTime[muxChannel] < POT_TIMEOUT) {
+        if(potMidiVal[muxChannel] != potPrevMidiVal[muxChannel]) {
+          switch (MESSAGE_TYPE_MUX_POT[muxChannel]) {
+            case CC: // CC
+              controlChange(MIDI_CH, MUX_POT_CC[muxChannel], potMidiVal[muxChannel]);  //  (channel, CC number,  CC value)
+              MidiUSB.flush();
+              if(MUX_POT_CC[muxChannel] != lastPotCCUsed) {
+                setLastPotCCInfo(MUX_POT_CC[muxChannel]);
+              }
+              setPotValueInfo(potMidiVal[muxChannel]);
+              lastPotCCUsed = MUX_POT_CC[muxChannel];
+
+  #ifdef DEBUG
+              printDbgPotMessages(muxChannel, true);
+  #endif
+
+              break;
+            case PB:  // PB
+              //NOT USING ANY OTHER MESSAGE TYPE FOR NOW.
+              //LEFT HERE FOR FUTURE NEEDS
+              break;
+              case NA:
+                //Just ignore it
+              break;
+          }
+
+          potPrevMidiVal[muxChannel] = potMidiVal[muxChannel];
+        }
+        potPrevVal[muxChannel] = potVal[muxChannel];
       }
     }
   }
+
+}
+
+//TODO
+void processPotsInArduino() {
+
 }
 
 
+bool checkFluctuation(int muxChannel, int midiVal) {
 
+  bool isSampleComplete = false;
+  bool isFluctuating = false;
+  //Precisa ter um desse para cada pot
+  if(muxChannel == 50) {
 
+    for(int samplesIdx = 0; samplesIdx < 5; samplesIdx++) {
+      if(midiValSamples[samplesIdx] == 0) {
+        midiValSamples[samplesIdx] = midiVal;
+        break;        
+      }      
+      isSampleComplete = true;
+    }
+
+    if(isSampleComplete) {
+      bool isGoingUp = false;
+      if(midiValSamples[0] > midiValSamples[1]) {
+        isGoingUp = true;
+      }
+      midiValSamples[0] = 0;
+      for (int idxSamples = 1 ; idxSamples < 4; idxSamples++) {
+        if (isGoingUp) {
+          if(midiValSamples[idxSamples] > midiValSamples[idxSamples+1]) {
+            isFluctuating = true;
 #ifdef DEBUG
-void printDebugMsgs() {
-
-      Serial.print("Pot: ");
-      Serial.print(i);
-      Serial.print("  |  ch: ");
-      Serial.print(POT_MIDI_CH);
-
-      switch (MESSAGE_TYPE_POT[i]) {
-        case 1:  // CC
-          Serial.print("  |  cc: ");
-          break;
-        case 4:  // PB
-          Serial.print("  |  pb: ");
-          break;
-      }
-
-#ifdef USING_CUSTOM_CC_N
-      Serial.print(POT_CC_N[i]);
-#else
-      Serial.print(CC_NUMBER + i);
+            Serial.println("Flutando pra Cima: ");              
 #endif
-
-      switch (MESSAGE_TYPE_POT[i]) {
-        case 1:  // CC
-          Serial.print("  |  value: ");
-          Serial.print(potMidiCState[i]);
-          Serial.print("  |  Responsive Value: ");
-          Serial.print(responsivePot[i].getValue());
-          break;
-        case 4:  // PB
-          Serial.print("  |  Pitch Bend Val: ");
-          Serial.print(PBVal[i]);
-          Serial.print("  |  Responsive Value: ");
-          Serial.print(responsivePot[i].getValue());
-          break;
+            break;
+          }
+        } else {
+          if(midiValSamples[idxSamples] < midiValSamples[idxSamples+1]) {
+#ifdef DEBUG
+            Serial.println("Flutando pra BAIXO: ");
+#endif
+            isFluctuating = true;
+            break;
+          }
+        }
+        midiValSamples[idxSamples] = 0;
       }
-      Serial.println();
+    }
+#ifdef DEBUG
+    Serial.print("Idx: ");
+    Serial.print(muxChannel);
+    Serial.print("Val: ");
+    Serial.println(midiVal);
+#endif
+ 
+  }
+  return isFluctuating;
+}
+
+#ifdef TEST_EACH_POT_CH
+bool isPotAvailableToTest(int muxChannel) {
+  if(currPot == muxChannel) {
+    int curTime = millis();
+    if(curTime - lastTime >= POT_TEST_TIMEOUT ) {
+      lastTime = millis();
+      if(currPot == 15)
+        currPot = 0;
+      else
+        currPot += 1;
+    }
+    return true;
+  } else {
+    return false;
+  }
 }
 #endif
 
+#ifdef DEBUG
+void printDbgPotMessages(int i, bool isMux) {
+  Serial.print("Pot: ");
+  Serial.print(i);
+  Serial.print("  |  ch: ");
+  Serial.print(MIDI_CH);
 
-#endif  // USING_POTENTIOMETERS
+  byte msgType = MESSAGE_TYPE_MUX_POT[i];
+  if(!isMux) {
+    msgType = MESSAGE_TYPE_ARDUINO_POT[i];
+  }
+  switch (msgType) {
+    case 1:  // CC
+      Serial.print("  |  cc: ");
+      break;
+    case 4:  // PB
+      Serial.print("  |  pb: ");
+      break;
+  }
+
+  if(isMux)
+    Serial.print(MUX_POT_CC[i]);
+  else
+    Serial.print(ARDUINO_POT_CC[i]);
+
+
+  switch (msgType) {
+    case 1:  // CC
+      Serial.print("  |  value: ");
+      Serial.print(potMidiVal[i]);
+      Serial.print("  |  Responsive Value: ");
+      Serial.print(responsivePot[i].getValue());
+      break;   
+  }
+
+  Serial.print("  |  PrevTime: ");
+  Serial.print(potPrevTime[i]);
+    Serial.print("  |  CurTime: ");
+  Serial.print(potTime[i]);
+
+  Serial.println();
+}
+#endif

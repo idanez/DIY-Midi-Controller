@@ -10,7 +10,13 @@ void printBaseInfo() {
   lcd.print("   BNK:");
   lcd.print(0);  
   lcd.setCursor(0, 2);
-  lcd.print("LAST CC: ");
+  //lcd.print("LAST CC: ");
+  lcd.print("BTN  CC: ");
+  lcd.print(0);
+  lcd.print("   VAL:");
+  lcd.print(0);
+  lcd.setCursor(0, 3);
+  lcd.print("POT  CC: ");
   lcd.print(0);
   lcd.print("   VAL:");
   lcd.print(0);
@@ -37,16 +43,30 @@ void setBankInfo(int bankNum) {
   lcd.print(bankNum);
 }
 
-void setLastCCInfo(int ccNum) {
+void setLastBtnCCInfo(int ccNum) {
   lcd.setCursor(9, 2);
   lcd.print("   ");
   lcd.setCursor(9, 2);
   lcd.print(ccNum);
 }
 
-void setValueInfo(int ccVal) {
+void setBtnValueInfo(int ccVal) {
   lcd.setCursor(17, 2);
   lcd.print("   ");
   lcd.setCursor(17, 2);
+  lcd.print(ccVal);
+}
+
+void setLastPotCCInfo(int ccNum) {
+  lcd.setCursor(9, 3);
+  lcd.print("   ");
+  lcd.setCursor(9, 3);
+  lcd.print(ccNum);
+}
+
+void setPotValueInfo(int ccVal) {
+  lcd.setCursor(17, 3);
+  lcd.print("   ");
+  lcd.setCursor(17, 3);
   lcd.print(ccVal);
 }
